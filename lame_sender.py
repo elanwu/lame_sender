@@ -14,11 +14,42 @@ import random
 
 ## DESIGNATE: 1) BINARY FIRMWARE FILE NAME, 2) SERIAL PORT ##
 BIN_FW_NAME = 'a.bin'
-SER_PORT_NAME = ('COM11', '/dev/ttyUSB0')[1]
+SER_PORT_NAME_DEFAULT = ('COM11', 'COM7', '/dev/ttyUSB0')[1]    # 0,1,2 ...
 
 SOH = b'\x01'
 NAK = b'\x15'
 ACK = b'\x06'
+
+
+
+def find_a_valid_serial_port_name():
+    n = 32
+    name = ''
+    i = -1
+    
+    for i in range(n, -2, -1):
+        name = "COM{}".format(i)
+        try:
+            s = serial.Serial(name)
+            s.close()
+            del s
+            break;
+        except Exception as e:
+           print('.', end='') 
+
+        name = "/dev/ttyUSB{}".format(i)
+        try:
+            s = serial.Serial(name)
+            s.close()
+            del s
+            break;
+        except Exception as e:
+           print(',', end='') 
+
+    if i < 0:
+        name = ''
+
+    return name
 
 
 def calc_file_sha256_str(fn: str) -> str:
@@ -115,13 +146,18 @@ def xmodem_transive(blks: [bytes], ser: serial.Serial):
 
 
 if __name__ == "__main__":
-    print('lame_sender V0.1.0')
+    print('lame_sender V0.1.2')
+
+    serial_port_name = find_a_valid_serial_port_name()
+    print('serial_port_found:<{}>'.format(serial_port_name))
+
+    SER_PORT_NAME = SER_PORT_NAME_DEFAULT if serial_port_name == '' else serial_port_name
     print('bin_firmware_file:<{}>, serial_port:<{}>'.format(BIN_FW_NAME, SER_PORT_NAME))
 
     dgst = calc_file_sha256_str(fn=BIN_FW_NAME)
     print("bin_firware_file:<{}> is found, with sha256 digest:<{}>.".format(BIN_FW_NAME, dgst[0:5]))
 
-    ser = serial.Serial('/dev/ttyUSB0', 9600)           # open serial port.
+    ser = serial.Serial(SER_PORT_NAME, 9600)           # open serial port.
     print("serial_port:<{}> is opened, with init config:<{}>, 9600,8N1 is expected.".format(SER_PORT_NAME, ser.get_settings()))
 
     blocks = slice_file_into_128_bytes_blocks(fn=BIN_FW_NAME)
@@ -129,6 +165,7 @@ if __name__ == "__main__":
     xmodem_transive(blks=blocks, ser=ser)
     
     print('Done')
+    input('Press any key to exit ...')
 
 
 
